@@ -13,6 +13,34 @@ def display_points_chart():
     data = cursor.fetchall()
     df = pd.DataFrame(data, columns=["Name", "Points"])
     st.bar_chart(df.set_index("Name"))
+
+def export_volunteer_data():
+    # Fetch data from the database
+    cursor.execute('''
+        SELECT v.volunteer_id, v.volunteer_name, 
+               SUM(s.hours_worked) AS total_hours,
+               COALESCE(SUM(CASE WHEN f.feedback_score >= 3 THEN f.feedback_score ELSE 0 END), 0) AS positive_feedback,
+               v.points
+        FROM volunteers v
+        LEFT JOIN shifts s ON v.volunteer_id = s.volunteer_id
+        LEFT JOIN feedback f ON v.volunteer_id = f.volunteer_id
+        GROUP BY v.volunteer_id
+    ''')
+    data = cursor.fetchall()
+    
+    # Convert data into a Pandas DataFrame
+    df = pd.DataFrame(data, columns=["Volunteer ID", "Volunteer Name", "Total Hours", "Positive Feedback", "Points"])
+    
+    # Generate a CSV file
+    csv_data = df.to_csv(index=False)
+    
+    # Create a Streamlit download button
+    st.download_button(
+        label="Download Volunteer Data as CSV",
+        data=csv_data,
+        file_name="volunteer_data.csv",
+        mime="text/csv"
+    )
     
 def supportscore_ui():
     '''
@@ -63,8 +91,13 @@ def supportscore_ui():
                         LEFT JOIN feedback f ON v.volunteer_id = f.volunteer_id
                         GROUP BY v.volunteer_id''')
         volunteers = cursor.fetchall()
+        
         # Display points chart
         display_points_chart()
+        
+        # Export Volunteer Data
+        st.subheader("Export Volunteer Data")
+        export_volunteer_data()
         
         # Display volunteer details
         if volunteers:
@@ -81,4 +114,4 @@ def supportscore_ui():
                 st.write("---")
         else:
             st.info("No volunteers found.")
-        
+
